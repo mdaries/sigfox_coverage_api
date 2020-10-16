@@ -21,40 +21,40 @@ Project is created with:
 * Using sigfox API v2 : https://support.sigfox.com/apidocs#tag/Coverages
 
 ## Setup
-Install packages
+### Install packages
 * pip install aiohttp
 * pip install folium
 * pip install requests
 * pip install tqdm
 
-Sigfox API credentials
-*To create your Sigfox API credential check the following support page => https://support.sigfox.com/docs/api-credential-creation
+### Sigfox API credentials
+* To create your Sigfox API credential check the following support page => https://support.sigfox.com/docs/api-credential-creation
 * Fill in your Sigfox API credentials in the example file "credentials_empty" and rename it "credentials"
-Ex: 
-"myApi": { "login":"123456", "password": "abcdef", "group": "56789"}
 
-Location input file
-*Create the csv input file listing the location to be tested
+Ex: "myApi": { "login":"123456", "password": "abcdef", "group": "56789"}
+
+### Location input file
+* Create the csv input file listing the location to be tested
+
 Format is : latitude,longitude     without headers
-Ex: 
+
 -34.921403,-54.945659
 -33.382523,-70.584099
 45.454582,-122.585197
 
 
 ## Usage Examples
-Examples of usage:
 
-Execute script with credentials "myApi"
+* Execute script with credentials "myApi"
 python3.7 check_coverage.py -c myApi
 
-Build map with clustering, gather locations in cluster to optimize display
+* Build map with clustering, gather locations in cluster to optimize display
 python3.7 check_coverage.py -c myApi -cl
 
-Check coverage for a Class U1 device
+* Check coverage for a Class U1 device
 python3.7 check_coverage.py -c myApi -d 1
 
-Check coverage for a device located inside a building (adding 20dB margin) => check https://support.sigfox.com/docs/global-coverage-api for more details
+* Check coverage for a device located inside a building (adding 20dB margin) => check https://support.sigfox.com/docs/global-coverage-api for more details
 python3.7 check_coverage.py -c myApi -e indoor
 
 
