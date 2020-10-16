@@ -81,3 +81,5 @@ To-do list:
 ## Status
 Project is: _in progress_
 
+## Licence
+MIT Licence
