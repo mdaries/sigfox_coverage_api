@@ -8,12 +8,12 @@
 * [Contact](#contact)
 
 ## General info
-* Determine Sigfox coverage with a list of lat,lng
+* Check Sigfox coverage from a list of lat,lng
 * Output a csv results with margins and link quality indicator for each lcoation
-* Generate a result map, displaying coverage dots
+* Generate a html result map, displaying coverage dots
 
 ## Screenshots
-![Example screenshot](./img/screenshot.png)
+![Map result](./result_map.jpg)
 
 ## Technologies
 Project is created with:
@@ -22,27 +22,54 @@ Project is created with:
 
 ## Setup
 Install packages
-* aiohttp
-* folium
-* requests
-* tqdm
+* pip install aiohttp
+* pip install folium
+* pip install requests
+* pip install tqdm
 
-## Code Examples
-Show examples of usage:
-`put-your-code-here`
+Sigfox API credentials
+*To create your Sigfox API credential check the following support page => https://support.sigfox.com/docs/api-credential-creation
+* Fill in your Sigfox API credentials in the example file "credentials_empty" and rename it "credentials"
+Ex: 
+"myApi": { "login":"123456", "password": "abcdef", "group": "56789"}
+
+Location input file
+*Create the csv input file listing the location to be tested
+Format is : latitude,longitude     without headers
+Ex: 
+-34.921403,-54.945659
+-33.382523,-70.584099
+45.454582,-122.585197
+
+
+## Usage Examples
+Examples of usage:
+
+Execute script with credentials "myApi"
+python3.7 check_coverage.py -c myApi
+
+Build map with clustering, gather locations in cluster to optimize display
+python3.7 check_coverage.py -c myApi -cl
+
+Check coverage for a Class U1 device
+python3.7 check_coverage.py -c myApi -d 1
+
+Check coverage for a device located inside a building (adding 20dB margin) => check https://support.sigfox.com/docs/global-coverage-api for more details
+python3.7 check_coverage.py -c myApi -e indoor
+
 
 ## Features
 List of features ready and TODOs for future development
-* Awesome feature 1
-* Awesome feature 2
-* Awesome feature 3
+* Coverage result in csv file
+* Coverage result displayed on a map
+* Filter by LQI on the map
+* Asynchronous API call optimized for large location batch
 
 To-do list:
-* Wow improvement to be done 1
-* Wow improvement to be done 2
+* improve http error mgmt
+* improve read csv : pull error line + CONTINUE
+* document osm api
 
 ## Status
-Project is: _in progress_, _finished_, _no longer continue_ and why?
+Project is: _in progress_
 
-## Contact
-Created by Mallory Daries - feel free to contact me!
