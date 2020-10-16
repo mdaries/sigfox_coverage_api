@@ -13,7 +13,7 @@
 * Generate a html result map, displaying coverage dots
 
 ## Screenshots
-![Map result](./result_map.jpg)
+![Map result](./map_result.jpg)
 
 ## Technologies
 Project is created with:
