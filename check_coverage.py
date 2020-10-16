@@ -25,7 +25,8 @@ import osm_api
 #implement legacy link quality indicator to render on the map
 #test location as object
 #improve read csv : pull error line + CONTINUE
-
+#add permissionError mgmt in write result when file is open
+#create result in a folder/ add location file as an input
 DEBUG = False 
 
 #param to be added 
@@ -33,7 +34,8 @@ request_type = "coverage"
 
 #input and output filepath
 current_folder = os.path.dirname(__file__)
-input_csv = os.path.join(current_folder,"location.csv")
+#input_csv = os.path.join(current_folder,"location.csv")
+input_csv = os.path.join(current_folder,"ireland_corp28734.csv")
 #input_res_csv = os.path.join(current_folder,"coverage_result.csv")
 
 cred_file = os.path.join(current_folder,"credentials")
@@ -202,7 +204,7 @@ def write_result_to_csv(filename,results = []):
         line_count = 0
         for result in results:
             csv_writer.writerow([
-                line_count+1,
+                result["id"],
                 result["pos"][0],
                 result["pos"][1],
                 result["covered"],
@@ -237,8 +239,10 @@ def get_lqi(margins):
             break
     return lqi
 
+
+
 #Asynchronous function - call coverage API to get coverage result for a given lat,lng
-async def fetch_coverage_async(url,session, lat, lng, radius=200):
+async def fetch_coverage_async(url,session, lat, lng, i, radius=200):
     params = {"lat": lat,"lng":lng}
     async with session.get(url,params=params) as response:
         response = await response.json()
@@ -253,7 +257,7 @@ async def fetch_coverage_async(url,session, lat, lng, radius=200):
         else:
             covered = False
         #Format {'pos': ['-34.921403', '-54.945659'], 'covered': True, 'margins': [18, 0, 0],'lqi':3}
-        dict_result = {"pos":[lat,lng],"covered":covered,"margins":margins_offset,"lqi":lqi}        
+        dict_result = {"id":i,"pos":[lat,lng],"covered":covered,"margins":margins_offset,"lqi":lqi}        
         
     return dict_result
 
@@ -273,7 +277,7 @@ async def fetch_coverage_async_all(dict_pos,cred,request_type):
         for i in dict_pos:
             lat = dict_pos[i][0]
             lng = dict_pos[i][1]
-            task = fetch_coverage_async(url,session,lat,lng,radius)
+            task = fetch_coverage_async(url,session,lat,lng,i+1,radius)
             tasks.append(task)
         responses = [await f for f in tqdm.tqdm(asyncio.as_completed(tasks), total=len(tasks),desc="Progression")]
         return responses
@@ -324,14 +328,16 @@ if __name__ == '__main__':
     #Get coverage from API
     responses = asyncio.run(fetch_coverage_async_all(dict_pos,settings['credentials'],request_type))
 
+    results_sorted = sorted(responses, key=lambda k: k['id']) 
+
     #Write results to csv
-    write_result_to_csv(output_csv,responses)
+    write_result_to_csv(output_csv,results_sorted)
 
     #read result from csv
     #responses = read_result_from_csv(input_res_csv)
 
     # Create map with results
-    osm_api.create_map(responses,settings['clustering'])
+    osm_api.create_map(results_sorted,settings['clustering'])
 
 
 
