@@ -18,7 +18,7 @@
 ## Technologies
 Project is created with:
 * Python 3.7
-* Using sigfox API v2 : see the [API documentation](https://support.sigfox.com/apidocs#tag/Coverages)
+* Using sigfox API v2 : see the [Coverage API documentation](https://support.sigfox.com/apidocs#tag/Coverages)
 
 ## Setup
 ### Install packages
@@ -28,7 +28,7 @@ Project is created with:
 * pip install tqdm
 
 ### Sigfox API credentials
-* To create your Sigfox API credential check the official [support page](https://support.sigfox.com/docs/api-credential-creation)
+* To create your Sigfox API credential check the official support page: [How to create API credential](https://support.sigfox.com/docs/api-credential-creation)
 * Fill in your Sigfox API credentials in the example file "credentials_empty" and rename it "credentials"
 
 Ex: "myApi": { "login":"123456", "password": "abcdef", "group": "56789"}
@@ -61,7 +61,7 @@ python3.7 check_coverage.py -c myApi -cl
 python3.7 check_coverage.py -c myApi -d 1
 ```
 
-* Check coverage for a device located inside a building (adding 20dB margin) => check the [global coverage api doc](https://support.sigfox.com/docs/global-coverage-api) for more details
+* Check coverage for a device located inside a building (adding 20dB margin) => check the [global coverage api article](https://support.sigfox.com/docs/global-coverage-api) for more details
 ```bash
 python3.7 check_coverage.py -c myApi -e indoor
 ```
