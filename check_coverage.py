@@ -34,8 +34,7 @@ request_type = "coverage"
 
 #input and output filepath
 current_folder = os.path.dirname(__file__)
-#input_csv = os.path.join(current_folder,"location.csv")
-input_csv = os.path.join(current_folder,"ireland_corp28734.csv")
+input_csv = os.path.join(current_folder,"location.csv")
 #input_res_csv = os.path.join(current_folder,"coverage_result.csv")
 
 cred_file = os.path.join(current_folder,"credentials")
@@ -46,7 +45,6 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 
 base_url={
     "coverage":"https://backend.sigfox.com/api/v2/coverages/global/predictions",
-    "coverage_wrong":"https://backend.sigfo.com/api/v2/coverages/global/predictions"
 }
 
 #lqi algo constants
