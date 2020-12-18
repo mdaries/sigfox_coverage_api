@@ -27,21 +27,26 @@ import osm_api
 #improve read csv : pull error line + CONTINUE
 #add permissionError mgmt in write result when file is open
 #create result in a folder/ add location file as an input
-DEBUG = False 
+DEBUG = True 
 
 #param to be added 
 request_type = "coverage"
 
-#input and output filepath
-current_folder = os.path.dirname(__file__)
-input_csv = os.path.join(current_folder,"location.csv")
-#input_res_csv = os.path.join(current_folder,"coverage_result.csv")
+#default params
+default_credname = "root"
+default_env_type = "outdoor"
+default_dev_class = 0
 
+#default input and output filepath
+current_folder = os.path.dirname(__file__)
+default_input_csv = os.path.join(current_folder,"location_small.csv")
 cred_file = os.path.join(current_folder,"credentials")
-output_csv = os.path.join(current_folder,"coverage_result.csv")
+default_output_csv = os.path.join(current_folder,"coverage_result.csv")
+
 
 #Logger Settings
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 base_url={
     "coverage":"https://backend.sigfox.com/api/v2/coverages/global/predictions",
@@ -198,7 +203,7 @@ def write_result_to_csv(filename,results = []):
         logging.info("Result csv file opened")
         csv_writer = csv.writer(csv_file, lineterminator='\r')
         #write the columns
-        csv_writer.writerow(["id","lat","lng","covered","margin1","margin2","margin3","lqi"])
+        csv_writer.writerow(["id","lat","lng","covered","margin1","margin2","margin3","lqi","API call status"])
         line_count = 0
         for result in results:
             csv_writer.writerow([
@@ -209,7 +214,8 @@ def write_result_to_csv(filename,results = []):
                 result["margins"][0],
                 result["margins"][1],
                 result["margins"][2],
-                global_lqi_scale[result["lqi"]]
+                global_lqi_scale[result["lqi"]],
+                result["api_call"]
                 ])
             line_count += 1
         logging.info(f"Result file created with {line_count} locations")
@@ -237,26 +243,41 @@ def get_lqi(margins):
             break
     return lqi
 
-
+def retry_code(code: int) -> bool:
+    
+        return 500 <= code <= 599 or code in statuses
 
 #Asynchronous function - call coverage API to get coverage result for a given lat,lng
-async def fetch_coverage_async(url,session, lat, lng, i, radius=200):
+async def fetch_coverage_async(url,session, lat, lng, i, radius=200,current_attempt=0):
     params = {"lat": lat,"lng":lng}
+    max_retry = 3
+    retry_wait = 1
+    current_attempt +=1
+    global http_error 
+    url = "https://backend.sigfox.com/api/v2/coverages/global/prediction"
     async with session.get(url,params=params) as response:
-        response = await response.json()
+        result = await response.json()
         #covered = response.get('locationCovered')
-        margins = response.get('margins')
-
-        # apply offset on margins tab
-        margins_offset = [m-settings["offset"] if m > settings["offset"] else 0 for m in margins]
-        lqi = get_lqi(margins_offset)
-        if lqi:
-            covered = True
-        else:
-            covered = False
-        #Format {'pos': ['-34.921403', '-54.945659'], 'covered': True, 'margins': [18, 0, 0],'lqi':3}
-        dict_result = {"id":i,"pos":[lat,lng],"covered":covered,"margins":margins_offset,"lqi":lqi}        
+        code = response.status
         
+        if current_attempt < max_retry and retry_code(code):
+            await asyncio.sleep(retry_wait)
+            return await fetch_coverage_async(url,session, lat, lng, i, radius, current_attempt)
+        if code == 200:
+            margins = result.get('margins')
+            # apply offset on margins tab
+            margins_offset = [m-settings["offset"] if m > settings["offset"] else 0 for m in margins]
+            lqi = get_lqi(margins_offset)
+            if lqi:
+                covered = True
+            else:
+                covered = False
+            #Format {'pos': ['-34.921403', '-54.945659'], 'covered': True, 'margins': [18, 0, 0],'lqi':3}
+            dict_result = {"id":i,"pos":[lat,lng],"covered":covered,"margins":margins_offset,"lqi":lqi,"api_call":"OK"}
+        else:
+            dict_result = {"id":i,"pos":[lat,lng],"covered":False,"margins":[-1,-1,-1],"lqi":-1,"api_call":f"Fail:Http {code}"}
+            http_error+=1
+
     return dict_result
 
 #Asynchronous function - Fetch all responses within one Client session, keep connection alive for all requests.
@@ -265,13 +286,18 @@ async def fetch_coverage_async_all(dict_pos,cred,request_type):
     tasks = []
     url = base_url[request_type]
     radius = 200
+    timeout = None
 
     auth = aiohttp.BasicAuth(login=cred["login"], password=cred["password"], encoding='utf-8')
     logging.info("Starting http requests")
     #limit number of simultaneous TCP connection (default=100)
     conn = aiohttp.TCPConnector(limit=30)
-
-    async with aiohttp.ClientSession(auth=auth,connector=conn) as session:  
+    session_timeout = aiohttp.ClientTimeout(
+        total=timeout,
+        sock_connect=60, 
+        sock_read=60
+        )
+    async with aiohttp.ClientSession(auth=auth,connector=conn, timeout=session_timeout) as session:  
         for i in dict_pos:
             lat = dict_pos[i][0]
             lng = dict_pos[i][1]
@@ -284,14 +310,18 @@ if __name__ == '__main__':
 
     #Argument parser
     parser = argparse.ArgumentParser(description="Get coverage from location CSV file")
-    parser.add_argument("--credname", "-c", required=True, type=str,metavar="cred_name",dest="cred_name",
-                        help="Credential to be used for API requests")
+    parser.add_argument("--credname", "-c", required=False, type=str,metavar="cred_name",dest="cred_name",
+                        help="Credential to be used for API requests, default name is root")
     parser.add_argument("--clustering", "-cl", required=False,dest="clustering",action="store_true",
                         help="Enable point clustering option on the result map")
     parser.add_argument("--devclass", "-d", required=False,type=int,choices=[0,1,2,3],metavar="dev_class",dest="dev_class",
                         help="Device class to be used for the results (U0, U1, U2 or U3) - U0 by default")
     parser.add_argument("--envtype", "-e", required=False,type=str,choices=["outdoor","incar","indoor","underground"],metavar="env_type",dest="env_type",
                         help="Environment attenuation to be applied incar=10dB, indoor=20dB, underground=30dB - outdoor(0dB) by default")
+    parser.add_argument("--input_file", "-i", required=False,type=str,metavar="input_file",dest="input_file",
+                        help="CSV input file with location as lat,lng")
+    parser.add_argument("--output_file", "-o", required=False,type=str,metavar="output_file",dest="output_file",
+                        help="CSV output file with coverage results per location lat,lng")
     parser.add_argument("--verbose", "-v", required=False, dest="verbose", action="store_true",
                         help="increase output verbosity")
 
@@ -303,6 +333,8 @@ if __name__ == '__main__':
         DEBUG = True
     if args.cred_name:
         settings['credentials'] = read_cred(cred_file,args.cred_name,request_type)
+    else:
+        settings['credentials'] = read_cred(cred_file,default_credname,request_type)
     if args.clustering:
         settings['clustering'] = True
     else:
@@ -310,32 +342,45 @@ if __name__ == '__main__':
     if args.dev_class:
         settings["dev_class"] = args.dev_class
     else:
-        settings["dev_class"] = 0
+        settings["dev_class"] = default_dev_class
     if args.env_type:
         settings["env_type"] = args.env_type
     else:
-        settings["env_type"] ="outdoor"
+        settings["env_type"] = default_env_type
+    if args.input_file:
+        settings["input_file"] = os.path.join(current_folder,args.input_file)
+    else:
+        settings["input_file"] = default_input_csv
+    if args.output_file:
+        settings["output_file"] = os.path.join(current_folder,args.output_file)
+    else:
+        settings["output_file"] = default_output_csv
 
     # offset = device attenuation + environment attenuation
     settings["offset"] = dev_atten[settings["dev_class"]] + env_atten[settings["env_type"]]
     logging.info(f"Product class: U{settings['dev_class']}, Environment: {settings['env_type']} => Attenuation applied = {settings['offset']}dB")
     
     #read pos from csv
-    dict_pos = read_location_from_csv(input_csv)
+    dict_pos = read_location_from_csv(settings["input_file"])
+
+    #HTTP retry statuses
+    statuses = {x for x in range(100, 600)}
+    statuses.remove(200)
+    statuses.remove(429)
+
+    http_error = 0
 
     #Get coverage from API
     responses = asyncio.run(fetch_coverage_async_all(dict_pos,settings['credentials'],request_type))
-
+    if http_error:
+        logging.error(f"{http_error} API call failed : check the result file for more details")
     results_sorted = sorted(responses, key=lambda k: k['id']) 
 
     #Write results to csv
-    write_result_to_csv(output_csv,results_sorted)
+    write_result_to_csv(settings["output_file"],results_sorted)
 
     #read result from csv
     #responses = read_result_from_csv(input_res_csv)
 
     # Create map with results
     osm_api.create_map(results_sorted,settings['clustering'])
-
-
-
